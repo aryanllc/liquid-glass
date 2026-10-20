@@ -391,6 +391,147 @@
       transform: scale(0.95, 1.04);
     }
 
+    /* ==========================================================================
+       3-TAB LIQUID GLASS SEGMENTED CONTROL (REFRACT / MENISCUS / CAUSTICS)
+       ========================================================================== */
+    .liquid-seg-assembly {
+      position: relative;
+      width: 336px;
+      height: 68px;
+      border-radius: 999px;
+      padding: 6px;
+      background: rgba(0, 0, 0, 0.045);
+      border: 1px solid rgba(0, 0, 0, 0.07);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    [data-theme="dark"] .liquid-seg-assembly {
+      background: rgba(255, 255, 255, 0.055);
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .liquid-seg-assembly:active {
+      cursor: grabbing;
+    }
+
+    /* Underlying Solid Green Pill Track inside the 3-Tab Control */
+    .seg-base-track-pill {
+      position: absolute;
+      left: 10px;
+      top: 11px;
+      width: 96px;
+      height: 46px;
+      border-radius: 999px;
+      background-color: var(--accent);
+      box-shadow: 0 2px 12px rgba(var(--accent-rgb), 0.28);
+      will-change: transform;
+      pointer-events: none;
+      transition: background-color 0.25s ease;
+    }
+
+    /* Oversized Oblong Liquid Glass Thumb for the 3-Tab Control */
+    .seg-liquid-thumb {
+      position: absolute;
+      top: -5px;
+      left: 0px;
+      width: 124px;
+      height: 78px;
+      border-radius: 999px;
+      pointer-events: none;
+      will-change: transform;
+      z-index: 25;
+    }
+
+    /* Inner Refractive Viewport of the 3-Tab Glass Thumb */
+    .seg-lens-viewport {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--stage-bg);
+      transition: background-color 0.45s ease;
+    }
+
+    /* Synchronized Refracted Green Pill inside the 3-Tab Glass Thumb */
+    .seg-lens-inner-pill {
+      position: absolute;
+      left: 10px;
+      top: 16px;
+      width: 96px;
+      height: 46px;
+      border-radius: 999px;
+      background-color: var(--accent);
+      will-change: transform;
+      transition: background-color 0.25s ease;
+      box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.25);
+    }
+
+    /* Synchronized Magnified Text Labels inside the 3-Tab Glass Lens */
+    .seg-lens-labels-row {
+      position: absolute;
+      left: 0;
+      top: 5px;
+      width: 336px;
+      height: 68px;
+      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      will-change: transform;
+      pointer-events: none;
+    }
+
+    /* Animated Caustic Shimmer Overlay for Caustics Mode */
+    .caustic-wave-overlay {
+      position: absolute;
+      inset: -40%;
+      background: conic-gradient(
+        from 0deg at 50% 50%,
+        transparent 0deg,
+        rgba(255, 255, 255, 0.65) 45deg,
+        rgba(var(--accent-rgb), 0.45) 90deg,
+        transparent 150deg,
+        rgba(255, 255, 255, 0.55) 225deg,
+        rgba(var(--accent-rgb), 0.35) 280deg,
+        transparent 360deg
+      );
+      filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+      transition: opacity 0.4s ease;
+      animation: spinCaustics 4.5s linear infinite;
+    }
+
+    .mode-caustics .caustic-wave-overlay {
+      opacity: 0.9;
+    }
+
+    @keyframes spinCaustics {
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.12); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+
+    /* Chromatic Rim Dispersion Pulse for Refract Mode */
+    .mode-refract .glass-rim-piping {
+      box-shadow:
+        -2.5px 0 2px 0px rgba(0, 95, 30, 0.72),
+        2px 0 3px 0px rgba(0, 240, 255, 0.55),
+        -2px 0 3px 0px rgba(255, 210, 0, 0.5),
+        0 0 0 1.4px rgba(var(--accent-rgb), 0.82),
+        inset 0 0 8px 4.5px rgba(var(--accent-rgb), calc(1.05 * var(--rim-intensity))),
+        inset 0 3px 14px 5px rgba(var(--accent-rgb), calc(0.72 * var(--rim-intensity))),
+        inset 0 0 16px 10px rgba(255, 255, 255, 0.85);
+    }
+
     /* Glass HUD Styling */
     .glass-hud {
       background: var(--hud-bg);
@@ -608,6 +749,9 @@
             <!-- Synchronized Refracted Green Pill Track inside the Glass Capsule -->
             <div id="hero-lens-track" class="lens-inner-track"></div>
 
+            <!-- Animated Caustic Light Wave inside Hero Lens -->
+            <div class="caustic-wave-overlay"></div>
+
             <!-- Optical Meniscus Cushion -->
             <div class="glass-meniscus-cushion"></div>
             <span class="xray-badge">3. Refractive Inner Lens</span>
@@ -631,26 +775,32 @@
          COMPANION APPLE LIQUID GLASS BUTTONS SUITE
          ========================================================================== -->
     <section class="z-20 mt-4 sm:mt-6 flex flex-col items-center">
-      <div class="text-[11px] font-mono uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">
-        Companion Liquid Glass Controls
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-[11px] font-mono uppercase tracking-widest text-gray-400 dark:text-gray-500">
+          Companion Liquid Glass Controls
+        </span>
+        <span id="active-optical-mode-badge"
+          class="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition-all">
+          Mode: Refract Wave
+        </span>
       </div>
 
-      <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+      <div class="flex flex-wrap items-center justify-center gap-5 sm:gap-7">
         <!-- 1. Liquid Glass Push Button with Underlying Accent Pill -->
         <button id="companion-push-btn" type="button"
           class="group relative h-14 px-8 rounded-full flex items-center justify-center focus:outline-none">
           <!-- Underlying solid green pill that gets refracted by the glass button overlapping it -->
-          <span class="absolute left-2 w-24 h-10 rounded-full transition-all duration-500 group-hover:w-[calc(100%-16px)] group-active:scale-95"
+          <span id="push-btn-pill" class="absolute left-2 w-24 h-10 rounded-full transition-all duration-500 group-hover:w-[calc(100%-16px)] group-active:scale-95"
                 style="background-color: var(--accent);"></span>
           <!-- Oversized Liquid Glass Capsule Overlay -->
           <span class="liquid-btn relative w-full h-14 px-7 flex items-center gap-2.5 text-sm font-semibold tracking-tight">
             <span class="w-2.5 h-2.5 rounded-full bg-white shadow-sm"></span>
-            <span class="mix-blend-difference text-white">Liquid Glass Action</span>
+            <span class="mix-blend-difference text-white">Liquid Glass Pulse</span>
           </span>
         </button>
 
         <!-- 2. Morphing Liquid Glass Play/Pause Orb -->
-        <button id="companion-orb-btn" type="button" aria-label="Liquid Play Pause Orb"
+        <button id="companion-orb-btn" type="button" aria-label="Liquid Play Pause Orb" title="Toggle Continuous Auto-Wave Animation"
           class="group relative w-16 h-14 flex items-center justify-center focus:outline-none">
           <span class="absolute left-1.5 w-10 h-10 rounded-full transition-transform duration-500 group-hover:translate-x-1.5"
                 style="background-color: var(--accent);"></span>
@@ -664,25 +814,58 @@
           </span>
         </button>
 
-        <!-- 3. Sliding Liquid Glass Segmented Pill -->
-        <div class="relative h-14 p-1.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.08] flex items-center">
-          <!-- Underlying Colored Pill Indicator -->
-          <div id="seg-color-pill" class="absolute top-2.5 left-2.5 w-20 h-9 rounded-full transition-all duration-500 cubic-bezier(0.22, 1, 0.36, 1)"
-               style="background-color: var(--accent);"></div>
+        <!-- 3. Authentic Multi-Layer Liquid Glass 3-Tab Switcher (Refract / Meniscus / Caustics) -->
+        <div id="liquid-seg-control" class="liquid-seg-assembly" role="tablist" aria-label="Liquid Glass Optical Modes">
+          <!-- Layer 1: Underlying Solid Green Pill Track (Trails with elastic spring physics) -->
+          <div id="seg-base-pill" class="seg-base-track-pill"></div>
 
-          <!-- Sliding Oversized Liquid Glass Capsule Lens -->
-          <div id="seg-glass-lens" class="liquid-btn absolute -top-0.5 left-1.5 w-24 h-[60px] rounded-full pointer-events-none transition-all duration-500 cubic-bezier(0.18, 1.25, 0.32, 1) z-20"
-               style="background: rgba(255,255,255,0.22); backdrop-filter: blur(2px) saturate(180%);"></div>
-
-          <button type="button" data-seg="0" class="seg-item relative z-30 w-24 h-11 rounded-full text-xs font-semibold transition-colors">
+          <!-- Layer 2: Base Track Labels (Outside the glass lens) -->
+          <button type="button" data-seg="0" role="tab" aria-selected="true"
+            class="seg-item relative z-10 w-[108px] h-14 rounded-full text-xs font-semibold tracking-tight text-gray-600 dark:text-gray-300 transition-colors focus:outline-none">
             Refract
           </button>
-          <button type="button" data-seg="1" class="seg-item relative z-30 w-24 h-11 rounded-full text-xs font-semibold transition-colors">
+          <button type="button" data-seg="1" role="tab" aria-selected="false"
+            class="seg-item relative z-10 w-[108px] h-14 rounded-full text-xs font-semibold tracking-tight text-gray-600 dark:text-gray-300 transition-colors focus:outline-none">
             Meniscus
           </button>
-          <button type="button" data-seg="2" class="seg-item relative z-30 w-24 h-11 rounded-full text-xs font-semibold transition-colors">
+          <button type="button" data-seg="2" role="tab" aria-selected="false"
+            class="seg-item relative z-10 w-[108px] h-14 rounded-full text-xs font-semibold tracking-tight text-gray-600 dark:text-gray-300 transition-colors focus:outline-none">
             Caustics
           </button>
+
+          <!-- Layer 3, 4, 5: Oversized Oblong Liquid Glass Capsule Lens (Slides & squashes with 120fps spring physics) -->
+          <div id="seg-glass-thumb" class="seg-liquid-thumb">
+            <!-- Inner Refractive Lens Viewport (Clips & magnifies the underlying green pill + text labels) -->
+            <div class="seg-lens-viewport">
+              <!-- Synchronized Inner Green Pill (Shows the green pill terminating inside the clear glass meniscus!) -->
+              <div id="seg-lens-pill" class="seg-lens-inner-pill"></div>
+
+              <!-- Synchronized Magnified & Refracted Text Labels inside the Glass Capsule -->
+              <div id="seg-lens-labels" class="seg-lens-labels-row">
+                <span class="w-[108px] h-14 flex items-center justify-center text-[13px] font-extrabold tracking-tight text-slate-950 dark:text-white drop-shadow-sm">
+                  Refract
+                </span>
+                <span class="w-[108px] h-14 flex items-center justify-center text-[13px] font-extrabold tracking-tight text-slate-950 dark:text-white drop-shadow-sm">
+                  Meniscus
+                </span>
+                <span class="w-[108px] h-14 flex items-center justify-center text-[13px] font-extrabold tracking-tight text-slate-950 dark:text-white drop-shadow-sm">
+                  Caustics
+                </span>
+              </div>
+
+              <!-- Animated Caustic Wave Overlay -->
+              <div class="caustic-wave-overlay"></div>
+
+              <!-- Optical Meniscus Inner Cushion -->
+              <div class="glass-meniscus-cushion"></div>
+            </div>
+
+            <!-- Total Internal Reflection (TIR) Green Rim Piping around the 3-Tab Capsule -->
+            <div class="glass-rim-piping"></div>
+
+            <!-- High-Gloss Specular Meniscus Shell -->
+            <div id="seg-specular" class="glass-specular-shell"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -830,19 +1013,23 @@
       const telemetryVel = document.getElementById('telemetry-vel');
       const stateDot = document.getElementById('state-dot');
 
+      // 3-Tab Segmented Liquid Glass Elements (Refract / Meniscus / Caustics)
+      const segControl = document.getElementById('liquid-seg-control');
+      const segBasePill = document.getElementById('seg-base-pill');
+      const segGlassThumb = document.getElementById('seg-glass-thumb');
+      const segLensPill = document.getElementById('seg-lens-pill');
+      const segLensLabels = document.getElementById('seg-lens-labels');
+      const segSpecular = document.getElementById('seg-specular');
+      const segItems = document.querySelectorAll('.seg-item');
+      const activeModeBadge = document.getElementById('active-optical-mode-badge');
+      const hintText = document.getElementById('hint-text');
+
       // Geometry Constants matching the uploaded reference photo
-      // In the reference photo (ON state, pos = 1.0):
-      // - Base Track is at left: 22px, width: 266px (right edge = 288px)
-      // - Glass Thumb is width: 224px, height: 142px
-      // - At pos = 1.0 (ON), thumbX = 96px:
-      //   * 96 - 22 = 74px of solid green track sticks out on the left!
-      //   * Inside the 224px glass thumb, the green track continues for 288 - 96 = 192px,
-      //     leaving 224 - 192 = 32px of crystal-clear white meniscus gap on the right (plus 17px top & bottom),
-      //     framed by the vibrant green refractive outer rim!
-      // - At pos = 0.0 (OFF), thumbX = 0px:
-      //   * The glass thumb extends 22px to the left of the track, creating the symmetric meniscus gap on the left!
       const THUMB_MIN_X = 0;
       const THUMB_MAX_X = 96;
+
+      // Geometry Constants for the 3-Tab Liquid Glass Segmented Control (Refract=0, Meniscus=1, Caustics=2)
+      const SEG_STEP_X = 106; // 336px total width -> 0px, 106px, 212px
 
       // Spring Physics State
       const physics = {
@@ -866,31 +1053,49 @@
         accentHex: '#00c944',
         accentRgb: [0, 201, 68],
 
-        // Pointer / Drag State
+        // Pointer / Drag State (Hero Switch)
         isDragging: false,
         dragStartX: 0,
         dragStartPos: 1.0,
         hasDraggedSignificantly: false,
         lightX: 32,
-        lightY: 14
+        lightY: 14,
+
+        // 3-Tab Segmented Control (Refract / Meniscus / Caustics) Spring State
+        segIndex: 0,           // 0 = Refract, 1 = Meniscus, 2 = Caustics
+        segPos: 0.0,           // Glass thumb normalized index [0..2]
+        segTargetPos: 0.0,
+        segVel: 0.0,
+        segPillPos: -0.14,     // Underlying green pill offset so it peeks out with the signature meniscus gap!
+        segPillVel: 0.0,
+        segPress: 0.0,
+        segTargetPress: 0.0,
+        segPressVel: 0.0,
+        segDragging: false,
+        segDragStartX: 0,
+        segDragStartPos: 0.0,
+        segMoved: false,
+
+        // Active Optical Mode Wave Animation Timer
+        modeWaveTime: 0.0,
+        autoWavePlaying: false
       };
 
+      // Set initial optical mode class
+      document.body.classList.add('mode-refract');
+
       // ========================================================================
-      // SYNTHESIZED APPLE TAPTIC ENGINE & GLASS RESONANCE (WEB AUDIO API)
+      // WEB AUDIO API — SYNTHESIZED APPLE TAPTIC ENGINE FEEDBACK
       // ========================================================================
       let audioCtx = null;
       let soundEnabled = true;
 
-      function triggerTapticFeedback(type = 'toggleOn') {
-        // Mobile vibration API fallback
-        if (navigator.vibrate) {
-          navigator.vibrate(type === 'press' ? 6 : 12);
-        }
+      function triggerTapticFeedback(type) {
         if (!soundEnabled) return;
-
         try {
           if (!audioCtx) {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
             audioCtx = new AudioContextClass();
           }
           if (audioCtx.state === 'suspended') {
@@ -899,7 +1104,7 @@
 
           const now = audioCtx.currentTime;
 
-          // 1. Low-frequency Taptic Linear Actuator Thump
+          // 1. Sub-bass Taptic Linear Resonator Thump
           const oscThump = audioCtx.createOscillator();
           const gainThump = audioCtx.createGain();
           oscThump.type = 'sine';
@@ -1112,7 +1317,93 @@
           heroAmbient.style.transform = `translate3d(${ambientShiftX.toFixed(1)}px, 0px, -2px)`;
         }
 
-        // 7. Update Live Telemetry Readout
+        // ====================================================================
+        // 7. SOLVE 3-TAB LIQUID GLASS CONTROL (REFRACT / MENISCUS / CAUSTICS)
+        // ====================================================================
+        physics.modeWaveTime += dt;
+
+        // Optional Continuous Auto-Wave when Play Orb is active
+        if (physics.autoWavePlaying && !physics.isDragging && !physics.segDragging) {
+          const wave = Math.sin(physics.modeWaveTime * 2.2);
+          physics.vel += wave * 0.14 * dt * 60;
+          physics.segVel += Math.cos(physics.modeWaveTime * 2.2) * 0.08 * dt * 60;
+        }
+
+        const segK = physics.segDragging && physics.segMoved ? 580 : physics.stiffness;
+        const segD = physics.segDragging && physics.segMoved ? 32 : Math.max(13, physics.damping - 3);
+
+        // Glass Thumb Spring
+        const segForce = (physics.segTargetPos - physics.segPos) * segK;
+        physics.segVel += (segForce - physics.segVel * segD) * dt;
+        physics.segPos += physics.segVel * dt;
+
+        // Underlying Green Pill Spring (Slightly trailing + offset so the green pill edge refracts inside the glass lens!)
+        // When on Refract (0), pill sits slightly left/right so the meniscus gap is always visible just like the reference image
+        const meniscusLeadOffset = physics.segTargetPos === 0 ? -0.12 : (physics.segTargetPos === 2 ? -0.15 : -0.13);
+        const pillTarget = physics.segTargetPos + meniscusLeadOffset;
+        const pillForce = (pillTarget - physics.segPillPos) * (segK * 0.72);
+        physics.segPillVel += (pillForce - physics.segPillVel * (segD * 0.85)) * dt;
+        physics.segPillPos += physics.segPillVel * dt;
+
+        // Press Swell Spring for 3-Tab Thumb
+        const segPressForce = (physics.segTargetPress - physics.segPress) * 340;
+        physics.segPressVel += (segPressForce - physics.segPressVel * 22) * dt;
+        physics.segPress += physics.segPressVel * dt;
+
+        // Mode-Specific Optical Wave Modulations (Refract=0, Meniscus=1, Caustics=2)
+        let modeSquashBonusX = 0;
+        let modeSquashBonusY = 0;
+        let modeLensZoom = 1.08;
+
+        if (physics.segIndex === 0) {
+          // REFRACT MODE: High-dispersion rim refraction wave
+          const refractPulse = Math.sin(physics.modeWaveTime * 3.5) * 0.015;
+          modeLensZoom = 1.07 + refractPulse;
+        } else if (physics.segIndex === 1) {
+          // MENISCUS MODE: Deep surface-tension liquid breathing & magnification swell
+          const meniscusBreath = Math.sin(physics.modeWaveTime * 2.8);
+          modeSquashBonusX = meniscusBreath * 0.025;
+          modeSquashBonusY = -meniscusBreath * 0.02;
+          modeLensZoom = 1.14 + meniscusBreath * 0.04;
+        } else if (physics.segIndex === 2) {
+          // CAUSTICS MODE: Orbiting light caustic sweep across both glass lenses
+          const causticAngle = physics.modeWaveTime * 2.4;
+          const cx = 50 + Math.cos(causticAngle) * 32;
+          const cy = 28 + Math.sin(causticAngle * 1.5) * 20;
+          segSpecular.style.setProperty('--light-x', `${cx.toFixed(1)}%`);
+          segSpecular.style.setProperty('--light-y', `${cy.toFixed(1)}%`);
+          if (!physics.isDragging) {
+            physics.lightX = cx;
+            physics.lightY = cy;
+          }
+        }
+
+        // Compute pixel positions & liquid squash-and-stretch for the 3-tab control
+        const segThumbX = physics.segPos * SEG_STEP_X;
+        const segPillX = Math.max(-6, Math.min(224, (physics.segPillPos + 0.14) * SEG_STEP_X));
+        const segSpeed = Math.abs(physics.segVel);
+
+        const segStretchX = 1 + physics.segPress * 0.065 + Math.min(segSpeed * 0.032, 0.14) + modeSquashBonusX;
+        const segSquishY = 1 + physics.segPress * 0.045 - Math.min(segSpeed * 0.018, 0.07) + modeSquashBonusY;
+
+        // Position the base green pill & oversized liquid glass capsule
+        segBasePill.style.transform = `translate3d(${segPillX.toFixed(2)}px, 0px, 0px)`;
+        segGlassThumb.style.transform = `translate3d(${segThumbX.toFixed(2)}px, 0px, 0px) scale(${segStretchX.toFixed(4)}, ${segSquishY.toFixed(4)})`;
+
+        // Counter-translate the inner refracted green pill so it stays locked in world space with meniscus compression!
+        const invSegX = 1 / segStretchX;
+        const invSegY = 1 / segSquishY;
+        const innerPillDeltaX = segPillX - segThumbX;
+        segLensPill.style.transform = `translate3d(${innerPillDeltaX.toFixed(2)}px, 0px, 0px) scale(${(0.98 * invSegX).toFixed(4)}, ${(physics.lensMag * invSegY).toFixed(4)})`;
+
+        // Counter-translate & magnify the inner text labels ("Refract", "Meniscus", "Caustics") inside the glass lens!
+        const labelMagX = modeLensZoom * invSegX;
+        const labelMagY = (modeLensZoom + 0.03) * invSegY;
+        segLensLabels.style.transform = `translate3d(${(-segThumbX).toFixed(2)}px, 0px, 0px)`;
+        segLensLabels.style.transformOrigin = `${(segThumbX + 62).toFixed(1)}px 34px`;
+        segLensLabels.style.scale = `${labelMagX.toFixed(3)} ${labelMagY.toFixed(3)}`;
+
+        // 8. Update Live Telemetry Readout
         const stateLabel = physics.pos >= 0.5 ? 'ON' : 'OFF';
         telemetryState.textContent = `${stateLabel} (${physics.pos.toFixed(2)})`;
         telemetryVel.textContent = Math.abs(physics.vel).toFixed(2);
@@ -1250,34 +1541,151 @@
       // 8. Companion Liquid Glass Buttons Interaction
       const companionPushBtn = document.getElementById('companion-push-btn');
       companionPushBtn.addEventListener('click', () => {
-        // Trigger a playful wave on the hero switch when companion button is clicked
-        physics.vel += (physics.pos >= 0.5 ? -1.8 : 1.8);
+        // Trigger a synchronized liquid impulse across BOTH the hero switch and the 3-tab control
+        physics.vel += (physics.pos >= 0.5 ? -3.2 : 3.2);
+        physics.press = 0.85;
+        physics.segVel += (physics.segIndex === 2 ? -2.8 : 2.8);
+        physics.segPress = 0.9;
         triggerTapticFeedback('toggleOn');
       });
 
       const companionOrbBtn = document.getElementById('companion-orb-btn');
       const orbIconPlay = document.getElementById('orb-icon-play');
       const orbIconPause = document.getElementById('orb-icon-pause');
-      let isPlaying = false;
       companionOrbBtn.addEventListener('click', () => {
-        isPlaying = !isPlaying;
-        orbIconPlay.classList.toggle('hidden', isPlaying);
-        orbIconPause.classList.toggle('hidden', !isPlaying);
-        triggerTapticFeedback(isPlaying ? 'toggleOn' : 'toggleOff');
+        physics.autoWavePlaying = !physics.autoWavePlaying;
+        orbIconPlay.classList.toggle('hidden', physics.autoWavePlaying);
+        orbIconPause.classList.toggle('hidden', !physics.autoWavePlaying);
+        triggerTapticFeedback(physics.autoWavePlaying ? 'toggleOn' : 'toggleOff');
       });
 
-      const segItems = document.querySelectorAll('.seg-item');
-      const segColorPill = document.getElementById('seg-color-pill');
-      const segGlassLens = document.getElementById('seg-glass-lens');
-      segItems.forEach((item) => {
-        item.addEventListener('click', () => {
-          const idx = parseInt(item.getAttribute('data-seg'), 10);
-          const offset = idx * 96;
-          segColorPill.style.transform = `translateX(${offset}px)`;
-          segGlassLens.style.transform = `translateX(${offset}px)`;
-          triggerTapticFeedback('toggleOn');
+      // ======================================================================
+      // INTERACTIVE 3-TAB LIQUID GLASS ENGINE (REFRACT / MENISCUS / CAUSTICS)
+      // ======================================================================
+      const opticalModeDescriptions = [
+        {
+          badge: 'Mode: Refract Wave',
+          hint: 'Refract Mode active — Total Internal Reflection rim piping & chromatic edge dispersion'
+        },
+        {
+          badge: 'Mode: Meniscus Swell',
+          hint: 'Meniscus Mode active — Elastic surface-tension magnification & liquid capsule breathing'
+        },
+        {
+          badge: 'Mode: Caustic Rays',
+          hint: 'Caustics Mode active — Orbiting specular light caustics sweeping across the glass shells'
+        }
+      ];
+
+      function activateOpticalMode(idx, withVelocityKick = true) {
+        const clampedIdx = Math.max(0, Math.min(2, idx));
+        const prevIdx = physics.segIndex;
+        physics.segIndex = clampedIdx;
+        physics.segTargetPos = clampedIdx;
+
+        if (withVelocityKick) {
+          const dir = clampedIdx >= prevIdx ? 1 : -1;
+          physics.segVel += dir * 2.4;
+          // Also send a sympathetic liquid ripple into the main Hero Switch!
+          physics.vel += dir * 1.9;
+          physics.press = 0.55;
+        }
+
+        // Update ARIA & Mode Classes
+        segItems.forEach((btn, i) => {
+          btn.setAttribute('aria-selected', String(i === clampedIdx));
         });
+
+        document.body.classList.remove('mode-refract', 'mode-meniscus', 'mode-caustics');
+        if (clampedIdx === 0) {
+          document.body.classList.add('mode-refract');
+          physics.lensMag = 0.94;
+          physics.rimIntensity = 1.15;
+        } else if (clampedIdx === 1) {
+          document.body.classList.add('mode-meniscus');
+          physics.lensMag = 0.86; // Stronger meniscus edge compression
+          physics.rimIntensity = 1.05;
+        } else if (clampedIdx === 2) {
+          document.body.classList.add('mode-caustics');
+          physics.lensMag = 0.96;
+          physics.rimIntensity = 1.35;
+        }
+
+        // Sync UI sliders & labels with the selected optical mode
+        sliderMag.value = physics.lensMag;
+        valMag.textContent = `${physics.lensMag.toFixed(2)}x`;
+        sliderRim.value = physics.rimIntensity;
+        valRim.textContent = `${Math.round(physics.rimIntensity * 100)}%`;
+
+        activeModeBadge.textContent = opticalModeDescriptions[clampedIdx].badge;
+        hintText.textContent = opticalModeDescriptions[clampedIdx].hint;
+
+        triggerTapticFeedback('toggleOn');
+      }
+
+      // Pointer Drag & Scrubbing on the 3-Tab Segmented Control (Refract / Meniscus / Caustics)
+      segControl.addEventListener('pointerdown', (e) => {
+        segControl.setPointerCapture(e.pointerId);
+        physics.segDragging = true;
+        physics.segDragStartX = e.clientX;
+        physics.segDragStartPos = physics.segPos;
+        physics.segMoved = false;
+        physics.segTargetPress = 1.0;
+
+        // Update specular highlight on the 3-tab glass lens
+        const rect = segControl.getBoundingClientRect();
+        const lx = ((e.clientX - rect.left) / rect.width) * 100;
+        segSpecular.style.setProperty('--light-x', `${Math.max(12, Math.min(88, lx)).toFixed(1)}%`);
+
+        triggerTapticFeedback('press');
       });
+
+      segControl.addEventListener('pointermove', (e) => {
+        const rect = segControl.getBoundingClientRect();
+        const lx = ((e.clientX - rect.left) / rect.width) * 100;
+        const ly = ((e.clientY - rect.top) / rect.height) * 100;
+        segSpecular.style.setProperty('--light-x', `${Math.max(10, Math.min(90, lx)).toFixed(1)}%`);
+        segSpecular.style.setProperty('--light-y', `${Math.max(8, Math.min(60, ly * 0.5)).toFixed(1)}%`);
+
+        if (!physics.segDragging) return;
+
+        const deltaX = e.clientX - physics.segDragStartX;
+        if (Math.abs(deltaX) > 4) {
+          physics.segMoved = true;
+        }
+
+        if (physics.segMoved) {
+          let rawSegPos = physics.segDragStartPos + deltaX / SEG_STEP_X;
+          // Elastic rubber-banding past left (0) and right (2) ends
+          if (rawSegPos < 0) {
+            rawSegPos = -Math.tanh((-rawSegPos) * 1.5) * 0.22;
+          } else if (rawSegPos > 2) {
+            rawSegPos = 2 + Math.tanh((rawSegPos - 2) * 1.5) * 0.22;
+          }
+          physics.segTargetPos = rawSegPos;
+        }
+      });
+
+      function handleSegPointerRelease(e) {
+        if (!physics.segDragging) return;
+        physics.segDragging = false;
+        physics.segTargetPress = 0.0;
+
+        if (!physics.segMoved) {
+          // User tapped a specific tab -> find which tab was clicked by X coordinate
+          const rect = segControl.getBoundingClientRect();
+          const clickRatio = (e.clientX - rect.left) / rect.width;
+          const clickedIdx = clickRatio < 0.333 ? 0 : (clickRatio < 0.666 ? 1 : 2);
+          activateOpticalMode(clickedIdx, true);
+        } else {
+          // User dragged the liquid glass lens -> snap to nearest tab with momentum
+          const projected = Math.round(physics.segPos + physics.segVel * 0.07);
+          activateOpticalMode(projected, false);
+        }
+      }
+
+      segControl.addEventListener('pointerup', handleSegPointerRelease);
+      segControl.addEventListener('pointercancel', handleSegPointerRelease);
 
       // 9. Export CSS / HTML Modal
       const codeModal = document.getElementById('code-modal');
