@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Apple Liquid Glass Studio — Optical Toggle & Refraction Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent: #00c944;
+      --accent-rgb: 0, 201, 68;
+      --accent-dark: #007d28;
+      --accent-bright: #4dff88;
+      --rim-intensity: 1;
+      --lens-mag: 0.94;
+      --glass-blur: 1.5px;
+      --stage-bg: #ffffff;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --hud-bg: rgba(255, 255, 255, 0.78);
+      --hud-border: rgba(0, 0, 0, 0.08);
+    }
+
+    [data-theme="dark"] {
+      --stage-bg: #080a0f;
+      --text-primary: #f9fafb;
+      --text-secondary: #9ca3af;
+      --hud-bg: rgba(18, 22, 31, 0.78);
+      --hud-border: rgba(255, 255, 255, 0.12);
+    }
+
+    [data-theme="refraction"] {
+      --stage-bg: #f4f6fb;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --hud-bg: rgba(255, 255, 255, 0.82);
+      --hud-border: rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--stage-bg);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.35s ease;
+    }
+
+    /* ==========================================================================
+       HERO LIQUID GLASS SWITCH — EXACT OPTICAL ARCHITECTURE (MATCHING REFERENCE)
+       ========================================================================== */
+    .hero-scene-perspective {
+      perspective: 1400px;
+      transform-style: preserve-3d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 40px 20px;
+    }
+
+    .liquid-switch-assembly {
+      position: relative;
+      width: 340px;
+      height: 156px;
+      transform-style: preserve-3d;
+      transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .liquid-switch-assembly:active {
+      cursor: grabbing;
+    }
+
+    /* 3D X-Ray Exploded View Mode */
+    .liquid-switch-assembly.xray-active {
+      transform: rotateX(54deg) rotateZ(-28deg) scale(0.88);
+    }
+
+    /* Layer 1: Diffused Ambient Studio Glow (matches soft green halo in reference image) */
+    .layer-ambient-glow {
+      position: absolute;
+      inset: -75px -85px;
+      border-radius: 999px;
+      background: radial-gradient(
+        ellipse at 56% 50%,
+        rgba(var(--accent-rgb), 0.18) 0%,
+        rgba(var(--accent-rgb), 0.08) 38%,
+        rgba(var(--accent-rgb), 0.02) 64%,
+        transparent 78%
+      );
+      pointer-events: none;
+      transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      transform: translateZ(-2px);
+    }
+
+    .xray-active .layer-ambient-glow {
+      transform: translateZ(-110px);
+      outline: 1.5px dashed rgba(var(--accent-rgb), 0.45);
+    }
+
+    /* Layer 2: The Base Pill Track (#00c944 in reference image) */
+    .layer-base-track {
+      position: absolute;
+      left: 22px;
+      top: 24px;
+      width: 266px;
+      height: 108px;
+      border-radius: 999px;
+      background-color: var(--accent);
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.08),
+        0 2px 12px rgba(var(--accent-rgb), 0.16);
+      transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+      transform: translateZ(0px);
+      overflow: hidden;
+    }
+
+    .xray-active .layer-base-track {
+      transform: translateZ(-45px);
+    }
+
+    /* Layer 3, 4, 5: The Oversized Oblong Liquid Glass Thumb Capsule */
+    .liquid-glass-thumb {
+      position: absolute;
+      top: 7px;
+      left: 0;
+      width: 224px;
+      height: 142px;
+      border-radius: 999px;
+      transform-style: preserve-3d;
+      will-change: transform;
+      pointer-events: none;
+    }
+
+    /* Inner Refractive Lens Viewport (clips & bends what lies underneath the glass thumb) */
+    .glass-lens-viewport {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      overflow: hidden;
+      /* Pure crystal studio backdrop inside the meniscus */
+      background: var(--stage-bg);
+      transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.45s ease;
+      transform: translateZ(2px);
+    }
+
+    .xray-active .glass-lens-viewport {
+      transform: translateZ(25px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+    }
+
+    /* Background Refraction Pattern Clone inside the Glass Thumb */
+    .lens-refraction-bg {
+      position: absolute;
+      width: 680px;
+      height: 360px;
+      left: -170px;
+      top: -105px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      will-change: transform;
+    }
+
+    [data-theme="refraction"] .lens-refraction-bg {
+      opacity: 1;
+    }
+
+    /* The Refracted Inner Green Track Pill inside the Glass Lens
+       Notice in the reference image: the green pill continues inside the glass capsule
+       and terminates with a clean semi-circular cap surrounded by a crystal-clear white meniscus gap! */
+    .lens-inner-track {
+      position: absolute;
+      left: 22px;
+      top: 17px; /* (142 - 108) / 2 = 17px vertical clearance on top and bottom */
+      width: 266px;
+      height: 108px;
+      border-radius: 999px;
+      background-color: var(--accent);
+      will-change: transform;
+      transform-origin: left center;
+      transition: background-color 0.25s ease;
+      box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.18);
+    }
+
+    /* Soft Optical Meniscus Inner Cushion (creates the realistic thickness transition between rim and center) */
+    .glass-meniscus-cushion {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      pointer-events: none;
+      background: radial-gradient(
+        105% 105% at 50% 50%,
+        rgba(255, 255, 255, 0) 58%,
+        rgba(255, 255, 255, 0.55) 82%,
+        rgba(var(--accent-rgb), 0.18) 93%,
+        rgba(var(--accent-rgb), 0.75) 100%
+      );
+      mix-blend-mode: normal;
+    }
+
+    [data-theme="dark"] .glass-meniscus-cushion {
+      background: radial-gradient(
+        105% 105% at 50% 50%,
+        rgba(15, 20, 28, 0) 56%,
+        rgba(255, 255, 255, 0.08) 81%,
+        rgba(var(--accent-rgb), 0.28) 92%,
+        rgba(var(--accent-rgb), 0.85) 100%
+      );
+    }
+
+    /* Layer 4: Total Internal Reflection (TIR) Green Rim Piping
+       This is the signature optical effect in the reference image:
+       The outer 5px-8px edge of the clear glass capsule pipes the vibrant green track color
+       all the way around its perimeter with a crisp dark-emerald outer boundary on the left overlap! */
+    .glass-rim-piping {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      pointer-events: none;
+      transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: translateZ(4px);
+      box-shadow:
+        /* Crisp outer refractive hairline (matches the dark-emerald left/outer boundary in reference) */
+        -1.5px 0 1px 0px rgba(0, 95, 30, 0.62),
+        1px 0 1.5px 0px rgba(var(--accent-rgb), 0.75),
+        0 0 0 1.2px rgba(var(--accent-rgb), 0.68),
+        /* Primary glowing emerald rim bleed around the inside perimeter of the glass capsule */
+        inset 0 0 6px 3.5px rgba(var(--accent-rgb), calc(0.95 * var(--rim-intensity))),
+        inset 0 2px 11px 4px rgba(var(--accent-rgb), calc(0.58 * var(--rim-intensity))),
+        /* Deeper internal refraction edge on top & bottom walls */
+        inset 0 -4px 8px 1px rgba(var(--accent-rgb), calc(0.45 * var(--rim-intensity))),
+        inset 0 4px 8px 1px rgba(0, 140, 45, calc(0.42 * var(--rim-intensity))),
+        /* Crisp white inner meniscus separation band just inside the green rim */
+        inset 0 0 14px 9px rgba(255, 255, 255, 0.78);
+    }
+
+    [data-theme="dark"] .glass-rim-piping {
+      box-shadow:
+        -1.5px 0 2px 0px rgba(0, 0, 0, 0.8),
+        0 0 0 1.5px rgba(var(--accent-rgb), 0.8),
+        inset 0 0 8px 4px rgba(var(--accent-rgb), calc(0.95 * var(--rim-intensity))),
+        inset 0 2px 16px 5px rgba(var(--accent-rgb), calc(0.62 * var(--rim-intensity))),
+        inset 0 0 16px 8px rgba(255, 255, 255, 0.14);
+    }
+
+    .xray-active .glass-rim-piping {
+      transform: translateZ(90px);
+    }
+
+    /* Layer 5: High-Gloss Specular Glass Shell & Elevation Caustics */
+    .glass-specular-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      pointer-events: none;
+      transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: translateZ(6px);
+      /* Subtle contact & elevation shadow matching the soft right/bottom shadow in the reference photo */
+      box-shadow:
+        6px 8px 20px -4px rgba(0, 80, 25, 0.14),
+        2px 4px 9px -2px rgba(0, 0, 0, 0.07),
+        -3px 0 8px -2px rgba(0, 75, 20, 0.12);
+    }
+
+    /* Top-left curved specular reflection strip (moves dynamically with pointer light angle) */
+    .glass-specular-shell::before {
+      content: "";
+      position: absolute;
+      inset: 3px 6px;
+      border-radius: 999px;
+      background:
+        radial-gradient(
+          90% 55% at var(--light-x, 32%) var(--light-y, 14%),
+          rgba(255, 255, 255, 0.92) 0%,
+          rgba(255, 255, 255, 0.45) 32%,
+          rgba(255, 255, 255, 0) 62%
+        ),
+        linear-gradient(
+          165deg,
+          rgba(255, 255, 255, 0.75) 0%,
+          rgba(255, 255, 255, 0) 38%,
+          rgba(255, 255, 255, 0) 72%,
+          rgba(255, 255, 255, 0.55) 100%
+        );
+      pointer-events: none;
+    }
+
+    /* Left-edge meniscus refraction crease where the glass overlaps the solid green track */
+    .glass-specular-shell::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 999px;
+      border-left: 2.5px solid rgba(255, 255, 255, 0.65);
+      border-right: 2px solid rgba(255, 255, 255, 0.55);
+      filter: blur(0.6px);
+      pointer-events: none;
+    }
+
+    .xray-active .glass-specular-shell {
+      transform: translateZ(150px);
+    }
+
+    /* X-Ray Floating Callout Badges */
+    .xray-badge {
+      position: absolute;
+      left: calc(100% + 24px);
+      top: 50%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(15, 23, 42, 0.88);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    .xray-badge::before {
+      content: "";
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      width: 20px;
+      height: 1.5px;
+      background: var(--accent);
+    }
+
+    .xray-active .xray-badge {
+      opacity: 1;
+    }
+
+    /* ==========================================================================
+       COMPANION LIQUID GLASS BUTTONS (USING THE SAME REFRACTIVE ENGINE)
+       ========================================================================== */
+    .liquid-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(12px) saturate(190%);
+      -webkit-backdrop-filter: blur(12px) saturate(190%);
+      box-shadow:
+        0 0 0 1.2px rgba(var(--accent-rgb), 0.65),
+        inset 0 0 5px 2.5px rgba(var(--accent-rgb), 0.82),
+        inset 0 0 10px 6px rgba(255, 255, 255, 0.85),
+        0 8px 20px -4px rgba(var(--accent-rgb), 0.22),
+        0 2px 6px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+
+    [data-theme="dark"] .liquid-btn {
+      background: rgba(20, 26, 38, 0.62);
+      box-shadow:
+        0 0 0 1.2px rgba(var(--accent-rgb), 0.75),
+        inset 0 0 6px 3px rgba(var(--accent-rgb), 0.85),
+        inset 0 0 12px 6px rgba(255, 255, 255, 0.12),
+        0 10px 24px -4px rgba(var(--accent-rgb), 0.3);
+    }
+
+    .liquid-btn:hover {
+      transform: scale(1.045) translateY(-1px);
+    }
+
+    .liquid-btn:active {
+      transform: scale(0.95, 1.04);
+    }
+
+    /* Glass HUD Styling */
+    .glass-hud {
+      background: var(--hud-bg);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--hud-border);
+      box-shadow:
+        0 20px 45px -15px rgba(0, 0, 0, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+
+    /* Custom Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(156, 163, 175, 0.3);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 16px;
+      border-radius: 999px;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb), 0.7),
+        inset 0 0 3px 1.5px rgba(var(--accent-rgb), 0.85),
+        0 2px 6px rgba(0,0,0,0.18);
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    @keyframes floatBlob {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      50% { transform: translate(24px, -14px) scale(1.08); }
+    }
+
+    .animate-blob {
+      animation: floatBlob 7s ease-in-out infinite;
+    }
+
+    @media (max-width: 640px) {
+      .hero-scale-wrapper {
+        transform: scale(0.82);
+        transform-origin: center center;
+      }
+      .xray-badge {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-emerald-500 selection:text-white">
+
+  <!-- Inline SVG Optical Filter for Liquid Meniscus Displacement -->
+  <svg class="hidden" width="0" height="0" aria-hidden="true">
+    <defs>
+      <filter id="liquid-meniscus-filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.022" numOctaves="2" seed="4" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- ==========================================================================
+       TOP NAVIGATION & TELEMETRY BAR
+       ========================================================================== -->
+  <header class="w-full max-w-6xl mx-auto px-4 pt-4 sm:pt-6 z-30 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <!-- Mini Liquid Glass Logo Emblem -->
+      <div class="w-10 h-7 rounded-full relative flex items-center p-0.5 bg-emerald-500/15 border border-emerald-500/30 shadow-inner">
+        <div class="w-4 h-4 rounded-full bg-[#00c944] ml-0.5"></div>
+        <div class="w-6 h-6 rounded-full absolute right-0.5 bg-white/80 backdrop-blur-md shadow-sm"
+             style="box-shadow: 0 0 0 1px rgba(0,201,68,0.7), inset 0 0 3px 1.5px rgba(0,201,68,0.9);"></div>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base sm:text-lg font-bold tracking-tight">Apple Liquid Glass Studio</h1>
+          <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+            Optics v2.6
+          </span>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
+          Interactive Refractive Meniscus Capsule &bull; Tap or Drag the Glass Lens Across the Track
+        </p>
+      </div>
+    </div>
+
+    <!-- Right Quick Actions: Audio, Slow-Mo, 3D X-Ray, Export Code -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- Live Physics Readout Pill -->
+      <div class="glass-hud px-3 py-1.5 rounded-full hidden md:flex items-center gap-3 text-xs font-mono">
+        <span class="flex items-center gap-1.5">
+          <span id="state-dot" class="w-2 h-2 rounded-full bg-[#00c944] animate-pulse"></span>
+          <strong id="telemetry-state">ON (1.00)</strong>
+        </span>
+        <span class="text-gray-300 dark:text-gray-700">|</span>
+        <span class="text-gray-500 dark:text-gray-400">VEL: <span id="telemetry-vel">0.00</span></span>
+      </div>
+
+      <!-- 0.2x Slow Motion Button -->
+      <button id="btn-slowmo" type="button"
+        class="glass-hud px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition hover:scale-105 active:scale-95"
+        title="Toggle 0.2x Slow Motion Physics">
+        <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span id="slowmo-label">1.0x Speed</span>
+      </button>
+
+      <!-- 3D Layer X-Ray Button -->
+      <button id="btn-xray" type="button"
+        class="glass-hud px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition hover:scale-105 active:scale-95"
+        title="Inspect 3D Optical Layers">
+        <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+        <span>3D X-Ray</span>
+      </button>
+
+      <!-- Sound / Taptic Toggle -->
+      <button id="btn-sound" type="button"
+        class="glass-hud p-2 rounded-full text-xs font-semibold flex items-center justify-center transition hover:scale-105 active:scale-95"
+        title="Toggle Apple Taptic Audio Feedback" aria-label="Toggle Sound">
+        <svg id="icon-sound-on" class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+        <svg id="icon-sound-off" class="w-4 h-4 text-gray-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+        </svg>
+      </button>
+
+      <!-- Export CSS Button -->
+      <button id="btn-export" type="button"
+        class="glass-hud px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition hover:scale-105 active:scale-95 bg-emerald-500/10 border-emerald-500/30">
+        <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        <span>Get CSS</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       MAIN INTERACTIVE OPTICAL STAGE
+       ========================================================================== -->
+  <main class="flex-1 flex flex-col items-center justify-center relative px-4 py-2 overflow-hidden">
+
+    <!-- Background Layer for "Refraction Lab" Mode (Proves Real-Time Transparency) -->
+    <div id="stage-refraction-backdrop" class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 transition-opacity duration-500 overflow-hidden">
+      <div class="relative w-[680px] h-[360px] flex items-center justify-center">
+        <div class="w-56 h-56 rounded-full bg-gradient-to-tr from-emerald-400/40 via-cyan-400/40 to-blue-500/40 blur-2xl absolute -left-8 -top-6 animate-blob"></div>
+        <div class="w-60 h-60 rounded-full bg-gradient-to-bl from-fuchsia-500/35 via-purple-500/35 to-amber-400/35 blur-2xl absolute right-4 bottom-0 animate-blob" style="animation-delay: -3s;"></div>
+        <div class="text-center select-none">
+          <p class="text-[64px] sm:text-[84px] font-black tracking-tighter leading-none text-slate-900/15 uppercase">
+            LIQUID OPTICS
+          </p>
+          <p class="text-[13px] font-mono tracking-[0.35em] text-slate-900/30 uppercase mt-2">
+            REAL-TIME MENISCUS REFRACTION TEST GRID
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Instruction Hint Pill -->
+    <div class="z-20 mb-2 flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-medium bg-black/[0.04] dark:bg-white/[0.06] text-gray-500 dark:text-gray-400">
+      <span class="inline-block w-2 h-2 rounded-full bg-[#00c944]"></span>
+      <span id="hint-text">Tap to toggle with Apple spring physics, or press &amp; slowly drag the liquid glass lens</span>
+    </div>
+
+    <!-- HERO LIQUID GLASS TOGGLE SWITCH (Exact Replica of Uploaded Reference Image) -->
+    <div class="hero-scene-perspective hero-scale-wrapper z-20 my-2">
+      <div id="hero-switch" class="liquid-switch-assembly" role="switch" aria-checked="true" tabindex="0" aria-label="Apple Liquid Glass Toggle Switch">
+
+        <!-- Layer 1: Ambient Diffused Green Studio Glow -->
+        <div id="hero-ambient" class="layer-ambient-glow">
+          <span class="xray-badge">1. Ambient Studio Halo</span>
+        </div>
+
+        <!-- Layer 2: Solid Pill Track (#00c944) -->
+        <div id="hero-track" class="layer-base-track">
+          <span class="xray-badge">2. Pill Track (#00c944)</span>
+        </div>
+
+        <!-- Layer 3, 4, 5: The Oversized Oblong Liquid Glass Thumb Capsule -->
+        <div id="hero-thumb" class="liquid-glass-thumb">
+
+          <!-- Layer 3: Inner Refractive Lens Viewport (shows the green pill terminating inside the clear glass) -->
+          <div id="hero-lens-viewport" class="glass-lens-viewport">
+            <!-- Synchronized Background Clone for Refraction Lab Mode -->
+            <div id="hero-lens-bg" class="lens-refraction-bg flex items-center justify-center" style="filter: url(#liquid-meniscus-filter);">
+              <div class="w-56 h-56 rounded-full bg-gradient-to-tr from-emerald-400/50 via-cyan-400/50 to-blue-500/50 blur-xl absolute left-10 top-6"></div>
+              <div class="w-60 h-60 rounded-full bg-gradient-to-bl from-fuchsia-500/45 via-purple-500/45 to-amber-400/45 blur-xl absolute right-12 bottom-6"></div>
+              <div class="text-center">
+                <p class="text-[84px] font-black tracking-tighter leading-none text-slate-900/25 uppercase">
+                  LIQUID OPTICS
+                </p>
+                <p class="text-[13px] font-mono tracking-[0.35em] text-slate-900/45 uppercase mt-2">
+                  REAL-TIME MENISCUS REFRACTION TEST GRID
+                </p>
+              </div>
+            </div>
+
+            <!-- Synchronized Refracted Green Pill Track inside the Glass Capsule -->
+            <div id="hero-lens-track" class="lens-inner-track"></div>
+
+            <!-- Optical Meniscus Cushion -->
+            <div class="glass-meniscus-cushion"></div>
+            <span class="xray-badge">3. Refractive Inner Lens</span>
+          </div>
+
+          <!-- Layer 4: Total Internal Reflection Green Rim Piping -->
+          <div id="hero-rim" class="glass-rim-piping">
+            <span class="xray-badge">4. Green Rim Refraction Piping</span>
+          </div>
+
+          <!-- Layer 5: Specular Meniscus Glass Shell & Caustics -->
+          <div id="hero-specular" class="glass-specular-shell">
+            <span class="xray-badge">5. Specular Glass Meniscus</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================================================
+         COMPANION APPLE LIQUID GLASS BUTTONS SUITE
+         ========================================================================== -->
+    <section class="z-20 mt-4 sm:mt-6 flex flex-col items-center">
+      <div class="text-[11px] font-mono uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">
+        Companion Liquid Glass Controls
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+        <!-- 1. Liquid Glass Push Button with Underlying Accent Pill -->
+        <button id="companion-push-btn" type="button"
+          class="group relative h-14 px-8 rounded-full flex items-center justify-center focus:outline-none">
+          <!-- Underlying solid green pill that gets refracted by the glass button overlapping it -->
+          <span class="absolute left-2 w-24 h-10 rounded-full transition-all duration-500 group-hover:w-[calc(100%-16px)] group-active:scale-95"
+                style="background-color: var(--accent);"></span>
+          <!-- Oversized Liquid Glass Capsule Overlay -->
+          <span class="liquid-btn relative w-full h-14 px-7 flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+            <span class="w-2.5 h-2.5 rounded-full bg-white shadow-sm"></span>
+            <span class="mix-blend-difference text-white">Liquid Glass Action</span>
+          </span>
+        </button>
+
+        <!-- 2. Morphing Liquid Glass Play/Pause Orb -->
+        <button id="companion-orb-btn" type="button" aria-label="Liquid Play Pause Orb"
+          class="group relative w-16 h-14 flex items-center justify-center focus:outline-none">
+          <span class="absolute left-1.5 w-10 h-10 rounded-full transition-transform duration-500 group-hover:translate-x-1.5"
+                style="background-color: var(--accent);"></span>
+          <span class="liquid-btn w-14 h-14 rounded-full flex items-center justify-center">
+            <svg id="orb-icon-play" class="w-5 h-5 text-emerald-950 dark:text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <svg id="orb-icon-pause" class="w-5 h-5 text-emerald-950 dark:text-white hidden" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+            </svg>
+          </span>
+        </button>
+
+        <!-- 3. Sliding Liquid Glass Segmented Pill -->
+        <div class="relative h-14 p-1.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.08] flex items-center">
+          <!-- Underlying Colored Pill Indicator -->
+          <div id="seg-color-pill" class="absolute top-2.5 left-2.5 w-20 h-9 rounded-full transition-all duration-500 cubic-bezier(0.22, 1, 0.36, 1)"
+               style="background-color: var(--accent);"></div>
+
+          <!-- Sliding Oversized Liquid Glass Capsule Lens -->
+          <div id="seg-glass-lens" class="liquid-btn absolute -top-0.5 left-1.5 w-24 h-[60px] rounded-full pointer-events-none transition-all duration-500 cubic-bezier(0.18, 1.25, 0.32, 1) z-20"
+               style="background: rgba(255,255,255,0.22); backdrop-filter: blur(2px) saturate(180%);"></div>
+
+          <button type="button" data-seg="0" class="seg-item relative z-30 w-24 h-11 rounded-full text-xs font-semibold transition-colors">
+            Refract
+          </button>
+          <button type="button" data-seg="1" class="seg-item relative z-30 w-24 h-11 rounded-full text-xs font-semibold transition-colors">
+            Meniscus
+          </button>
+          <button type="button" data-seg="2" class="seg-item relative z-30 w-24 h-11 rounded-full text-xs font-semibold transition-colors">
+            Caustics
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================================================
+       BOTTOM FLOATING STUDIO CONTROL DOCK
+       ========================================================================== -->
+  <footer class="w-full max-w-5xl mx-auto px-4 pb-5 pt-2 z-30">
+    <div class="glass-hud rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 sm:gap-6">
+
+      <!-- 1. Stage Backdrop Switcher -->
+      <div class="flex flex-col gap-1.5">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          1. Studio Environment
+        </span>
+        <div class="inline-flex p-1 rounded-2xl bg-black/[0.05] dark:bg-white/[0.06] gap-1">
+          <button type="button" data-env="studio"
+            class="env-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-white dark:bg-slate-800 shadow-sm">
+            Studio White (Ref)
+          </button>
+          <button type="button" data-env="dark"
+            class="env-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition opacity-70 hover:opacity-100">
+            Dark OLED
+          </button>
+          <button type="button" data-env="refraction"
+            class="env-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition opacity-70 hover:opacity-100">
+            Refraction Grid
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Track & Rim Refraction Color Swatches -->
+      <div class="flex flex-col gap-1.5">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          2. Refractive Rim &amp; Track Color
+        </span>
+        <div class="flex items-center gap-2.5">
+          <button type="button" data-color="#00c944" data-rgb="0, 201, 68" title="Apple Reference Green (#00c944)"
+            class="color-swatch w-7 h-7 rounded-full bg-[#00c944] ring-2 ring-offset-2 ring-[#00c944] transition transform hover:scale-110"></button>
+          <button type="button" data-color="#007aff" data-rgb="0, 122, 255" title="VisionOS Electric Blue (#007aff)"
+            class="color-swatch w-7 h-7 rounded-full bg-[#007aff] opacity-75 hover:opacity-100 transition transform hover:scale-110"></button>
+          <button type="button" data-color="#7c3aed" data-rgb="124, 58, 237" title="Ultra Violet (#7c3aed)"
+            class="color-swatch w-7 h-7 rounded-full bg-[#7c3aed] opacity-75 hover:opacity-100 transition transform hover:scale-110"></button>
+          <button type="button" data-color="#ff6b00" data-rgb="255, 107, 0" title="Action Orange (#ff6b00)"
+            class="color-swatch w-7 h-7 rounded-full bg-[#ff6b00] opacity-75 hover:opacity-100 transition transform hover:scale-110"></button>
+          <button type="button" data-color="#ff2d55" data-rgb="255, 45, 85" title="Cyber Rose (#ff2d55)"
+            class="color-swatch w-7 h-7 rounded-full bg-[#ff2d55] opacity-75 hover:opacity-100 transition transform hover:scale-110"></button>
+
+          <div class="h-5 w-[1px] bg-gray-300 dark:bg-gray-700 mx-1"></div>
+
+          <!-- Toggle between "Reference Lock (Always Green)" vs "iOS Dynamic Fade on OFF" -->
+          <button id="btn-track-mode" type="button"
+            class="px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 transition hover:bg-emerald-500/20"
+            title="Choose whether the pill track stays vibrant when OFF or fades to neutral gray">
+            Track: Always Vibrant
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. Fine-Tune Optical & Spring Sliders -->
+      <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-1 lg:pt-0">
+        <!-- Rim Bleed Intensity -->
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between text-[11px] font-mono">
+            <span class="text-gray-500 dark:text-gray-400">Rim Refraction</span>
+            <span id="val-rim" class="font-semibold">100%</span>
+          </div>
+          <input id="slider-rim" type="range" min="0.2" max="1.6" step="0.05" value="1.0" />
+        </div>
+
+        <!-- Inner Lens Magnification -->
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between text-[11px] font-mono">
+            <span class="text-gray-500 dark:text-gray-400">Lens Meniscus</span>
+            <span id="val-mag" class="font-semibold">0.94x</span>
+          </div>
+          <input id="slider-mag" type="range" min="0.80" max="1.08" step="0.01" value="0.94" />
+        </div>
+
+        <!-- Liquid Spring Bounciness -->
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between text-[11px] font-mono">
+            <span class="text-gray-500 dark:text-gray-400">Liquid Elasticity</span>
+            <span id="val-bounce" class="font-semibold">Apple iOS</span>
+          </div>
+          <input id="slider-bounce" type="range" min="1" max="3" step="1" value="2" />
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       CSS / HTML CODE EXPORT MODAL
+       ========================================================================== -->
+  <div id="code-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="glass-hud w-full max-w-2xl rounded-3xl p-6 shadow-2xl border border-white/20 flex flex-col gap-4 max-h-[85vh]">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold">Apple Liquid Glass Toggle — CSS &amp; HTML</h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Self-contained optical meniscus &amp; rim refraction stylesheet</p>
+        </div>
+        <button id="btn-close-modal" type="button" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <textarea id="code-export-area" readonly
+        class="w-full h-64 p-4 rounded-2xl bg-slate-950 text-emerald-300 font-mono text-xs overflow-y-auto focus:outline-none select-all"></textarea>
+
+      <div class="flex items-center justify-between">
+        <span id="copy-toast" class="text-xs font-medium text-emerald-600 dark:text-emerald-400 opacity-0 transition-opacity">
+          Copied to clipboard!
+        </span>
+        <div class="flex gap-2">
+          <button id="btn-copy-code" type="button"
+            class="px-5 py-2.5 rounded-full text-xs font-semibold bg-[#00c944] text-white shadow-md hover:brightness-105 active:scale-95 transition">
+            Copy Code to Clipboard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       120FPS SPRING PHYSICS, REAL-TIME LENS SYNC & TAPTIC AUDIO ENGINE
+       ========================================================================== -->
+  <script>
+    (function () {
+      // DOM Elements
+      const heroSwitch = document.getElementById('hero-switch');
+      const heroAmbient = document.getElementById('hero-ambient');
+      const heroTrack = document.getElementById('hero-track');
+      const heroThumb = document.getElementById('hero-thumb');
+      const heroLensTrack = document.getElementById('hero-lens-track');
+      const heroLensBg = document.getElementById('hero-lens-bg');
+      const heroSpecular = document.getElementById('hero-specular');
+      const stageRefractionBackdrop = document.getElementById('stage-refraction-backdrop');
+
+      const telemetryState = document.getElementById('telemetry-state');
+      const telemetryVel = document.getElementById('telemetry-vel');
+      const stateDot = document.getElementById('state-dot');
+
+      // Geometry Constants matching the uploaded reference photo
+      // In the reference photo (ON state, pos = 1.0):
+      // - Base Track is at left: 22px, width: 266px (right edge = 288px)
+      // - Glass Thumb is width: 224px, height: 142px
+      // - At pos = 1.0 (ON), thumbX = 96px:
+      //   * 96 - 22 = 74px of solid green track sticks out on the left!
+      //   * Inside the 224px glass thumb, the green track continues for 288 - 96 = 192px,
+      //     leaving 224 - 192 = 32px of crystal-clear white meniscus gap on the right (plus 17px top & bottom),
+      //     framed by the vibrant green refractive outer rim!
+      // - At pos = 0.0 (OFF), thumbX = 0px:
+      //   * The glass thumb extends 22px to the left of the track, creating the symmetric meniscus gap on the left!
+      const THUMB_MIN_X = 0;
+      const THUMB_MAX_X = 96;
+
+      // Spring Physics State
+      const physics = {
+        pos: 1.0,          // Start at 1.0 (ON) so initial render is identical to the uploaded reference photo
+        targetPos: 1.0,
+        vel: 0.0,
+
+        press: 0.0,        // 0 = released, 1 = pressed/held (swells liquid glass capsule)
+        targetPress: 0.0,
+        pressVel: 0.0,
+
+        // Tunable Spring Constants
+        stiffness: 240,
+        damping: 19,
+
+        // Optical Parameters
+        lensMag: 0.94,
+        rimIntensity: 1.0,
+        timeScale: 1.0,
+        alwaysVibrantTrack: true,
+        accentHex: '#00c944',
+        accentRgb: [0, 201, 68],
+
+        // Pointer / Drag State
+        isDragging: false,
+        dragStartX: 0,
+        dragStartPos: 1.0,
+        hasDraggedSignificantly: false,
+        lightX: 32,
+        lightY: 14
+      };
+
+      // ========================================================================
+      // SYNTHESIZED APPLE TAPTIC ENGINE & GLASS RESONANCE (WEB AUDIO API)
+      // ========================================================================
+      let audioCtx = null;
+      let soundEnabled = true;
+
+      function triggerTapticFeedback(type = 'toggleOn') {
+        // Mobile vibration API fallback
+        if (navigator.vibrate) {
+          navigator.vibrate(type === 'press' ? 6 : 12);
+        }
+        if (!soundEnabled) return;
+
+        try {
+          if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass();
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+
+          const now = audioCtx.currentTime;
+
+          // 1. Low-frequency Taptic Linear Actuator Thump
+          const oscThump = audioCtx.createOscillator();
+          const gainThump = audioCtx.createGain();
+          oscThump.type = 'sine';
+
+          if (type === 'press') {
+            oscThump.frequency.setValueAtTime(115, now);
+            oscThump.frequency.exponentialRampToValueAtTime(48, now + 0.035);
+            gainThump.gain.setValueAtTime(0.18, now);
+            gainThump.gain.exponentialRampToValueAtTime(0.001, now + 0.038);
+            oscThump.connect(gainThump);
+            gainThump.connect(audioCtx.destination);
+            oscThump.start(now);
+            oscThump.stop(now + 0.04);
+          } else {
+            const isOn = type === 'toggleOn';
+            oscThump.frequency.setValueAtTime(isOn ? 145 : 120, now);
+            oscThump.frequency.exponentialRampToValueAtTime(isOn ? 62 : 45, now + 0.055);
+            gainThump.gain.setValueAtTime(0.26, now);
+            gainThump.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+            oscThump.connect(gainThump);
+            gainThump.connect(audioCtx.destination);
+            oscThump.start(now);
+            oscThump.stop(now + 0.065);
+
+            // 2. Subtle Crystalline Glass Harmonics Ping
+            const oscGlass = audioCtx.createOscillator();
+            const gainGlass = audioCtx.createGain();
+            oscGlass.type = 'triangle';
+            oscGlass.frequency.setValueAtTime(isOn ? 1680 : 1320, now);
+            oscGlass.frequency.exponentialRampToValueAtTime(isOn ? 2240 : 980, now + 0.07);
+            gainGlass.gain.setValueAtTime(0.045, now);
+            gainGlass.gain.exponentialRampToValueAtTime(0.0008, now + 0.075);
+            oscGlass.connect(gainGlass);
+            gainGlass.connect(audioCtx.destination);
+            oscGlass.start(now);
+            oscGlass.stop(now + 0.08);
+          }
+        } catch (err) {
+          // Ignore audio context restrictions if not yet interacted
+        }
+      }
+
+      // ========================================================================
+      // POINTER GESTURE ENGINE (TAP + SMOOTH REAL-TIME SCRUBBING)
+      // ========================================================================
+      heroSwitch.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        heroSwitch.setPointerCapture(e.pointerId);
+
+        physics.isDragging = true;
+        physics.dragStartX = e.clientX;
+        physics.dragStartPos = physics.pos;
+        physics.hasDraggedSignificantly = false;
+        physics.targetPress = 1.0;
+
+        triggerTapticFeedback('press');
+      });
+
+      heroSwitch.addEventListener('pointermove', (e) => {
+        // Update dynamic specular light angle based on pointer position over the switch
+        const rect = heroSwitch.getBoundingClientRect();
+        const relX = ((e.clientX - rect.left) / rect.width) * 100;
+        const relY = ((e.clientY - rect.top) / rect.height) * 100;
+        physics.lightX = Math.max(10, Math.min(90, relX * 0.65 + 10));
+        physics.lightY = Math.max(6, Math.min(55, relY * 0.45 + 5));
+
+        if (!physics.isDragging) return;
+
+        const scaleFactor = rect.width / 340;
+        const deltaX = (e.clientX - physics.dragStartX) / scaleFactor;
+
+        if (Math.abs(deltaX) > 5) {
+          physics.hasDraggedSignificantly = true;
+        }
+
+        if (physics.hasDraggedSignificantly) {
+          // Map pointer delta to normalized [0, 1] with soft elastic rubber-banding past ends
+          let rawPos = physics.dragStartPos + deltaX / (THUMB_MAX_X - THUMB_MIN_X);
+          if (rawPos > 1) {
+            rawPos = 1 + Math.tanh((rawPos - 1) * 1.4) * 0.14;
+          } else if (rawPos < 0) {
+            rawPos = -Math.tanh((-rawPos) * 1.4) * 0.14;
+          }
+          physics.targetPos = rawPos;
+        }
+      });
+
+      function handlePointerRelease(e) {
+        if (!physics.isDragging) return;
+        physics.isDragging = false;
+        physics.targetPress = 0.0;
+
+        if (!physics.hasDraggedSignificantly) {
+          // User tapped the switch -> toggle state with spring physics
+          physics.targetPos = physics.targetPos >= 0.5 ? 0.0 : 1.0;
+          // Add an impulsive velocity kick for extra liquid responsiveness
+          physics.vel += (physics.targetPos === 1.0 ? 2.4 : -2.4);
+        } else {
+          // Snap to nearest side based on position + velocity momentum
+          const projectedPos = physics.pos + physics.vel * 0.08;
+          physics.targetPos = projectedPos >= 0.5 ? 1.0 : 0.0;
+        }
+
+        const isTurningOn = physics.targetPos >= 0.5;
+        heroSwitch.setAttribute('aria-checked', String(isTurningOn));
+        triggerTapticFeedback(isTurningOn ? 'toggleOn' : 'toggleOff');
+      }
+
+      heroSwitch.addEventListener('pointerup', handlePointerRelease);
+      heroSwitch.addEventListener('pointercancel', handlePointerRelease);
+
+      // Keyboard accessibility (Space / Enter / ArrowLeft / ArrowRight)
+      heroSwitch.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          physics.targetPos = physics.targetPos >= 0.5 ? 0.0 : 1.0;
+          physics.vel += (physics.targetPos === 1.0 ? 2.6 : -2.6);
+          const isTurningOn = physics.targetPos >= 0.5;
+          heroSwitch.setAttribute('aria-checked', String(isTurningOn));
+          triggerTapticFeedback(isTurningOn ? 'toggleOn' : 'toggleOff');
+        } else if (e.key === 'ArrowRight') {
+          physics.targetPos = 1.0;
+          triggerTapticFeedback('toggleOn');
+        } else if (e.key === 'ArrowLeft') {
+          physics.targetPos = 0.0;
+          triggerTapticFeedback('toggleOff');
+        }
+      });
+
+      // ========================================================================
+      // 120FPS SPRING SOLVER & OPTICAL SYNCHRONIZATION LOOP
+      // ========================================================================
+      let lastTime = performance.now();
+
+      function interpolateColor(rgb1, rgb2, t) {
+        const clamped = Math.max(0, Math.min(1, t));
+        const r = Math.round(rgb1[0] + (rgb2[0] - rgb1[0]) * clamped);
+        const g = Math.round(rgb1[1] + (rgb2[1] - rgb1[1]) * clamped);
+        const b = Math.round(rgb1[2] + (rgb2[2] - rgb1[2]) * clamped);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+
+      function tick(now) {
+        const rawDt = Math.min((now - lastTime) / 1000, 0.032);
+        lastTime = now;
+        const dt = rawDt * physics.timeScale;
+
+        // 1. Solve Main Position Spring
+        const k = physics.isDragging && physics.hasDraggedSignificantly ? 620 : physics.stiffness;
+        const d = physics.isDragging && physics.hasDraggedSignificantly ? 34 : physics.damping;
+
+        const force = (physics.targetPos - physics.pos) * k;
+        const accel = force - physics.vel * d;
+        physics.vel += accel * dt;
+        physics.pos += physics.vel * dt;
+
+        // 2. Solve Press Swell Spring
+        const pressForce = (physics.targetPress - physics.press) * 340;
+        const pressAccel = pressForce - physics.pressVel * 24;
+        physics.pressVel += pressAccel * dt;
+        physics.press += physics.pressVel * dt;
+
+        // 3. Calculate Thumb World Position & Liquid Squash/Stretch
+        const thumbX = THUMB_MIN_X + physics.pos * (THUMB_MAX_X - THUMB_MIN_X);
+        const speed = Math.abs(physics.vel);
+
+        // Liquid glass elongates horizontally when pressed or moving rapidly, and squishes slightly on impact
+        const stretchX = 1 + physics.press * 0.048 + Math.min(speed * 0.022, 0.09);
+        const squishY = 1 + physics.press * 0.032 - Math.min(speed * 0.012, 0.05);
+
+        // Apply transform to the Liquid Glass Thumb
+        heroThumb.style.transform = `translate3d(${thumbX.toFixed(2)}px, 0px, 0px) scale(${stretchX.toFixed(4)}, ${squishY.toFixed(4)})`;
+
+        // 4. Synchronize Inner Refracted Track Pill so it stays anchored in world space
+        // while showing realistic meniscus compression inside the glass lens!
+        const inverseStretchX = 1 / stretchX;
+        const inverseSquishY = 1 / squishY;
+        const magY = physics.lensMag * inverseSquishY;
+        const magX = (0.985 + (physics.lensMag - 0.94) * 0.4) * inverseStretchX;
+
+        // Counter-translate by -thumbX so the inner green pill aligns seamlessly with the outer green track
+        heroLensTrack.style.transform = `translate3d(${(-thumbX).toFixed(2)}px, 0px, 0px) scale(${magX.toFixed(4)}, ${magY.toFixed(4)})`;
+
+        // Synchronize Refraction Lab Background Clone inside the lens
+        heroLensBg.style.transform = `translate3d(${(48 - thumbX * 1.08).toFixed(2)}px, 0px, 0px) scale(${(1.06 * inverseStretchX).toFixed(3)}, ${(1.06 * inverseSquishY).toFixed(3)})`;
+
+        // 5. Update Dynamic Specular Light Coordinates
+        heroSpecular.style.setProperty('--light-x', `${physics.lightX.toFixed(1)}%`);
+        heroSpecular.style.setProperty('--light-y', `${physics.lightY.toFixed(1)}%`);
+
+        // 6. Track Color & Ambient Glow Intensity
+        if (!physics.alwaysVibrantTrack) {
+          // Optional iOS Dynamic Mode: transition between neutral studio slate-gray and active accent color
+          const neutralRgb = [212, 218, 226];
+          const dynamicColor = interpolateColor(neutralRgb, physics.accentRgb, physics.pos);
+          heroTrack.style.backgroundColor = dynamicColor;
+          heroLensTrack.style.backgroundColor = dynamicColor;
+          const dynamicRim = Math.max(0.28, physics.pos) * physics.rimIntensity;
+          document.documentElement.style.setProperty('--rim-intensity', dynamicRim.toFixed(3));
+        } else {
+          heroTrack.style.backgroundColor = physics.accentHex;
+          heroLensTrack.style.backgroundColor = physics.accentHex;
+          document.documentElement.style.setProperty('--rim-intensity', physics.rimIntensity.toFixed(3));
+        }
+
+        // Shift ambient glow slightly with the thumb
+        const ambientShiftX = (physics.pos - 0.5) * 28;
+        heroAmbient.style.opacity = (0.65 + Math.max(0, physics.pos) * 0.35).toFixed(2);
+        if (!heroSwitch.classList.contains('xray-active')) {
+          heroAmbient.style.transform = `translate3d(${ambientShiftX.toFixed(1)}px, 0px, -2px)`;
+        }
+
+        // 7. Update Live Telemetry Readout
+        const stateLabel = physics.pos >= 0.5 ? 'ON' : 'OFF';
+        telemetryState.textContent = `${stateLabel} (${physics.pos.toFixed(2)})`;
+        telemetryVel.textContent = Math.abs(physics.vel).toFixed(2);
+        stateDot.style.opacity = physics.pos >= 0.5 ? '1' : '0.35';
+
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+
+      // ========================================================================
+      // STUDIO CONTROLS & INTERACTIVE BUTTON HANDLERS
+      // ========================================================================
+
+      // 1. Environment Switcher (Studio White, Dark OLED, Refraction Grid)
+      const envBtns = document.querySelectorAll('.env-btn');
+      envBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const env = btn.getAttribute('data-env');
+          document.documentElement.setAttribute('data-theme', env === 'studio' ? '' : env);
+
+          stageRefractionBackdrop.style.opacity = env === 'refraction' ? '1' : '0';
+
+          envBtns.forEach((b) => {
+            b.className = 'env-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition opacity-70 hover:opacity-100';
+          });
+          btn.className = 'env-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-white dark:bg-slate-800 shadow-sm opacity-100';
+          triggerTapticFeedback('press');
+        });
+      });
+
+      // 2. Color Swatches
+      const colorSwatches = document.querySelectorAll('.color-swatch');
+      colorSwatches.forEach((swatch) => {
+        swatch.addEventListener('click', () => {
+          const hex = swatch.getAttribute('data-color');
+          const rgbStr = swatch.getAttribute('data-rgb');
+          physics.accentHex = hex;
+          physics.accentRgb = rgbStr.split(',').map((n) => parseInt(n.trim(), 10));
+
+          document.documentElement.style.setProperty('--accent', hex);
+          document.documentElement.style.setProperty('--accent-rgb', rgbStr);
+          stateDot.style.backgroundColor = hex;
+
+          colorSwatches.forEach((s) => {
+            s.classList.remove('ring-2', 'ring-offset-2', 'opacity-100');
+            s.classList.add('opacity-75');
+          });
+          swatch.classList.remove('opacity-75');
+          swatch.classList.add('ring-2', 'ring-offset-2', 'opacity-100');
+          swatch.style.setProperty('--tw-ring-color', hex);
+
+          triggerTapticFeedback('press');
+        });
+      });
+
+      // 3. Track Mode Button (Always Vibrant vs Dynamic Fade)
+      const btnTrackMode = document.getElementById('btn-track-mode');
+      btnTrackMode.addEventListener('click', () => {
+        physics.alwaysVibrantTrack = !physics.alwaysVibrantTrack;
+        btnTrackMode.textContent = physics.alwaysVibrantTrack
+          ? 'Track: Always Vibrant'
+          : 'Track: Dynamic Fade';
+        triggerTapticFeedback('press');
+      });
+
+      // 4. Slow Motion (0.2x) Button
+      const btnSlowmo = document.getElementById('btn-slowmo');
+      const slowmoLabel = document.getElementById('slowmo-label');
+      btnSlowmo.addEventListener('click', () => {
+        const isSlow = physics.timeScale < 0.5;
+        physics.timeScale = isSlow ? 1.0 : 0.2;
+        slowmoLabel.textContent = isSlow ? '1.0x Speed' : '0.2x Slow-Mo';
+        btnSlowmo.classList.toggle('bg-emerald-500/15', !isSlow);
+        btnSlowmo.classList.toggle('border-emerald-500/40', !isSlow);
+        triggerTapticFeedback('press');
+      });
+
+      // 5. 3D Layer X-Ray Button
+      const btnXray = document.getElementById('btn-xray');
+      btnXray.addEventListener('click', () => {
+        const active = heroSwitch.classList.toggle('xray-active');
+        btnXray.classList.toggle('bg-emerald-500/15', active);
+        btnXray.classList.toggle('border-emerald-500/40', active);
+        if (!active) {
+          heroAmbient.style.transform = 'translateZ(-2px)';
+        } else {
+          heroAmbient.style.transform = 'translateZ(-110px)';
+        }
+        triggerTapticFeedback('press');
+      });
+
+      // 6. Sound Toggle Button
+      const btnSound = document.getElementById('btn-sound');
+      const iconSoundOn = document.getElementById('icon-sound-on');
+      const iconSoundOff = document.getElementById('icon-sound-off');
+      btnSound.addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        iconSoundOn.classList.toggle('hidden', !soundEnabled);
+        iconSoundOff.classList.toggle('hidden', soundEnabled);
+        if (soundEnabled) triggerTapticFeedback('press');
+      });
+
+      // 7. Optical & Physics Sliders
+      const sliderRim = document.getElementById('slider-rim');
+      const valRim = document.getElementById('val-rim');
+      sliderRim.addEventListener('input', (e) => {
+        physics.rimIntensity = parseFloat(e.target.value);
+        valRim.textContent = `${Math.round(physics.rimIntensity * 100)}%`;
+      });
+
+      const sliderMag = document.getElementById('slider-mag');
+      const valMag = document.getElementById('val-mag');
+      sliderMag.addEventListener('input', (e) => {
+        physics.lensMag = parseFloat(e.target.value);
+        valMag.textContent = `${physics.lensMag.toFixed(2)}x`;
+      });
+
+      const sliderBounce = document.getElementById('slider-bounce');
+      const valBounce = document.getElementById('val-bounce');
+      const bouncePresets = {
+        1: { label: 'Smooth Overdamped', k: 210, d: 28 },
+        2: { label: 'Apple iOS', k: 240, d: 19 },
+        3: { label: 'Hyper Liquid', k: 310, d: 12 }
+      };
+      sliderBounce.addEventListener('input', (e) => {
+        const preset = bouncePresets[e.target.value];
+        if (preset) {
+          physics.stiffness = preset.k;
+          physics.damping = preset.d;
+          valBounce.textContent = preset.label;
+        }
+      });
+
+      // 8. Companion Liquid Glass Buttons Interaction
+      const companionPushBtn = document.getElementById('companion-push-btn');
+      companionPushBtn.addEventListener('click', () => {
+        // Trigger a playful wave on the hero switch when companion button is clicked
+        physics.vel += (physics.pos >= 0.5 ? -1.8 : 1.8);
+        triggerTapticFeedback('toggleOn');
+      });
+
+      const companionOrbBtn = document.getElementById('companion-orb-btn');
+      const orbIconPlay = document.getElementById('orb-icon-play');
+      const orbIconPause = document.getElementById('orb-icon-pause');
+      let isPlaying = false;
+      companionOrbBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        orbIconPlay.classList.toggle('hidden', isPlaying);
+        orbIconPause.classList.toggle('hidden', !isPlaying);
+        triggerTapticFeedback(isPlaying ? 'toggleOn' : 'toggleOff');
+      });
+
+      const segItems = document.querySelectorAll('.seg-item');
+      const segColorPill = document.getElementById('seg-color-pill');
+      const segGlassLens = document.getElementById('seg-glass-lens');
+      segItems.forEach((item) => {
+        item.addEventListener('click', () => {
+          const idx = parseInt(item.getAttribute('data-seg'), 10);
+          const offset = idx * 96;
+          segColorPill.style.transform = `translateX(${offset}px)`;
+          segGlassLens.style.transform = `translateX(${offset}px)`;
+          triggerTapticFeedback('toggleOn');
+        });
+      });
+
+      // 9. Export CSS / HTML Modal
+      const codeModal = document.getElementById('code-modal');
+      const btnExport = document.getElementById('btn-export');
+      const btnCloseModal = document.getElementById('btn-close-modal');
+      const btnCopyCode = document.getElementById('btn-copy-code');
+      const codeExportArea = document.getElementById('code-export-area');
+      const copyToast = document.getElementById('copy-toast');
+
+      function generateCleanExportCode() {
+        return `<!-- Apple Liquid Glass Toggle Switch (Exact Optical Recreation) -->
+<div class="apple-liquid-switch">
+  <div class="liquid-base-track"></div>
+  <div class="liquid-glass-capsule">
+    <div class="liquid-inner-lens">
+      <div class="liquid-refracted-track"></div>
+    </div>
+    <div class="liquid-rim-piping"></div>
+    <div class="liquid-specular-shell"></div>
+  </div>
+</div>
+
+<style>
+.apple-liquid-switch {
+  --accent: ${physics.accentHex};
+  --accent-rgb: ${physics.accentRgb.join(', ')};
+  position: relative;
+  width: 340px;
+  height: 156px;
+}
+.liquid-base-track {
+  position: absolute;
+  left: 22px;
+  top: 24px;
+  width: 266px;
+  height: 108px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.liquid-glass-capsule {
+  position: absolute;
+  top: 7px;
+  left: 96px; /* 0px for OFF, 96px for ON */
+  width: 224px;
+  height: 142px;
+  border-radius: 999px;
+}
+.liquid-inner-lens {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.liquid-refracted-track {
+  position: absolute;
+  left: 22px;
+  top: 17px;
+  width: 266px;
+  height: 108px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateX(-96px) scale(0.985, ${physics.lensMag});
+  transform-origin: left center;
+}
+.liquid-rim-piping {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  box-shadow:
+    -1.5px 0 1px 0 rgba(0, 95, 30, 0.62),
+    0 0 0 1.2px rgba(var(--accent-rgb), 0.68),
+    inset 0 0 6px 3.5px rgba(var(--accent-rgb), 0.95),
+    inset 0 2px 11px 4px rgba(var(--accent-rgb), 0.58),
+    inset 0 0 14px 9px rgba(255, 255, 255, 0.78);
+}
+.liquid-specular-shell {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  box-shadow: 6px 8px 20px -4px rgba(0, 80, 25, 0.14);
+}
+</style>`;
+      }
+
+      btnExport.addEventListener('click', () => {
+        codeExportArea.value = generateCleanExportCode();
+        codeModal.classList.remove('hidden');
+        codeModal.classList.add('flex');
+        triggerTapticFeedback('press');
+      });
+
+      btnCloseModal.addEventListener('click', () => {
+        codeModal.classList.add('hidden');
+        codeModal.classList.remove('flex');
+      });
+
+      codeModal.addEventListener('click', (e) => {
+        if (e.target === codeModal) {
+          codeModal.classList.add('hidden');
+          codeModal.classList.remove('flex');
+        }
+      });
+
+      btnCopyCode.addEventListener('click', () => {
+        codeExportArea.select();
+        document.execCommand('copy');
+        copyToast.style.opacity = '1';
+        triggerTapticFeedback('toggleOn');
+        setTimeout(() => {
+          copyToast.style.opacity = '0';
+        }, 2200);
+      });
+    })();
+  </script>
+</body>
+</html>
